@@ -1,5 +1,5 @@
 {
-  description = "Description for the project";
+  description = "instant pb frontend";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
@@ -18,6 +18,9 @@
         denvs.default = {
             denv.packages = with pkgs; [
                 nodejs
+
+                # Doom
+                emscripten
             ];
         };
       };

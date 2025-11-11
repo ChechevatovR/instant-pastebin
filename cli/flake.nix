@@ -1,5 +1,5 @@
 {
-  description = "rdf-store";
+  description = "instant pb cli";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
