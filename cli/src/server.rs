@@ -1,12 +1,15 @@
+use crate::signalling::AnswerTo;
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
 use captures::capture;
+use log::{error, info, log};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io;
 use tokio::io::AsyncReadExt;
+use webrtc::api::APIBuilder;
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
-use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::interceptor::registry::Registry;
 use webrtc::peer_connection::configuration::RTCConfiguration;
@@ -38,7 +41,20 @@ pub(crate) async fn main() -> Result<()> {
     // Prepare the configuration
     let config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+            urls: vec![
+                "stun:stun.l.google.com:19302".to_owned(),
+                "stun:stun1.l.google.com:19302".to_owned(),
+                "stun:stun2.l.google.com:19302".to_owned(),
+                "stun:stun3.l.google.com:19302".to_owned(),
+                "stun:stun4.l.google.com:19302".to_owned(),
+                "stun:stun.relay.metered.ca:80".to_owned(),
+                "turn:global.relay.metered.ca:80".to_owned(),
+                "turn:global.relay.metered.ca:80?transport=tcp".to_owned(),
+                "turn:global.relay.metered.ca:443".to_owned(),
+                "turns:global.relay.metered.ca:443?transport=tcp".to_owned(),
+            ],
+            username: "6fb0f47d8cb4265a38814e9d".to_owned(),
+            credential: "fgSXLhtt0s2cUy9C".to_owned(),
             ..Default::default()
         }],
         ..Default::default()
@@ -54,19 +70,21 @@ pub(crate) async fn main() -> Result<()> {
 
     // Set the handler for Peer connection state
     // This will notify you when the peer has connected/disconnected
-    peer_connection.on_peer_connection_state_change(Box::new(capture!(with done_tx = done_tx.clone(), move |s: RTCPeerConnectionState| {
-        println!("Peer Connection State has changed: {s}");
+    peer_connection.on_peer_connection_state_change(Box::new(
+        capture!(with done_tx = done_tx.clone(), move |s: RTCPeerConnectionState| {
+            info!("Peer Connection State has changed: {s}");
 
-        if s == RTCPeerConnectionState::Failed {
-            // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
-            // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
-            // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-            println!("Peer Connection has gone to failed exiting");
-            let _ = done_tx.try_send(());
-        }
+            if s == RTCPeerConnectionState::Failed {
+                // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
+                // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
+                // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
+                error!("Peer Connection has gone to failed exiting");
+                let _ = done_tx.try_send(());
+            }
 
-        Box::pin(async {})
-    })));
+            Box::pin(async {})
+        }),
+    ));
 
     // Register channel opening handling
     let d1 = Arc::clone(&data_channel);
@@ -106,18 +124,35 @@ pub(crate) async fn main() -> Result<()> {
     let _ = gather_complete.recv().await;
 
     // Output the answer in base64 so we can paste it in browser
-    if let Some(local_desc) = peer_connection.local_description().await {
-        let json_str = serde_json::to_string(&local_desc)?;
-        let b64 = webrtc_signal::encode(&json_str);
-        println!("{b64}");
+
+    let signalling = crate::signalling::SignallingClient::new("http://64.188.74.63".to_owned());
+
+    let session_id = if let Some(local_desc) = peer_connection.local_description().await {
+        let x = signalling.post_offer(local_desc).await?;
+        println!("offer response: {}", x.identifier);
+        x
     } else {
-        println!("generate local_description failed!");
-    }
+        panic!("generate local_description failed!");
+    };
 
     // Wait for the answer to be pasted
-    let line = webrtc_signal::must_read_stdin()?;
-    let desc_data = webrtc_signal::decode(line.as_str())?;
-    let answer = serde_json::from_str::<RTCSessionDescription>(&desc_data)?;
+
+    let answer: RTCSessionDescription = loop {
+        let timeout = tokio::time::sleep(Duration::from_millis(1500));
+        tokio::pin!(timeout);
+        tokio::select! {
+            _ = timeout.as_mut() => {
+
+                let result = signalling.get_answer(&session_id.identifier).await;
+                match result {
+                    Ok(answer) => {break answer.client.webRTC.answer;}
+                    Err(_) => {
+                        continue;
+                    }
+                }
+            }
+        }
+    };
 
     // Apply the answer as the remote description
     peer_connection.set_remote_description(answer).await?;
