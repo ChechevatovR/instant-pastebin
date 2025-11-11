@@ -1,3 +1,4 @@
+use crate::common::*;
 use crate::signalling::AnswerTo;
 use crate::wordle::Wordle;
 use anyhow::Result;
@@ -19,6 +20,7 @@ use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use std::io::Read;
 use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
 
+const CHUNK_SIZE: usize = 64 * 1024;
 const BYTES_UNTIL_WORDLE: usize = 1024 * 10; // 10 KiB
 // const BYTES_UNTIL_WORDLE: usize = 64; // 64 B
 
@@ -49,15 +51,15 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
         ice_servers: vec![RTCIceServer {
             urls: vec![
                 "stun:stun.l.google.com:19302".to_owned(),
-                "stun:stun1.l.google.com:19302".to_owned(),
-                "stun:stun2.l.google.com:19302".to_owned(),
-                "stun:stun3.l.google.com:19302".to_owned(),
-                "stun:stun4.l.google.com:19302".to_owned(),
-                "stun:stun.relay.metered.ca:80".to_owned(),
-                "turn:global.relay.metered.ca:80".to_owned(),
-                "turn:global.relay.metered.ca:80?transport=tcp".to_owned(),
-                "turn:global.relay.metered.ca:443".to_owned(),
-                "turns:global.relay.metered.ca:443?transport=tcp".to_owned(),
+                // "stun:stun1.l.google.com:19302".to_owned(),
+                // "stun:stun2.l.google.com:19302".to_owned(),
+                // "stun:stun3.l.google.com:19302".to_owned(),
+                // "stun:stun4.l.google.com:19302".to_owned(),
+                // "stun:stun.relay.metered.ca:80".to_owned(),
+                // "turn:global.relay.metered.ca:80".to_owned(),
+                // "turn:global.relay.metered.ca:80?transport=tcp".to_owned(),
+                // "turn:global.relay.metered.ca:443".to_owned(),
+                // "turns:global.relay.metered.ca:443?transport=tcp".to_owned(),
             ],
             username: "6fb0f47d8cb4265a38814e9d".to_owned(),
             credential: "fgSXLhtt0s2cUy9C".to_owned(),
@@ -95,13 +97,35 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
     // Register channel opening handling
     let d1 = Arc::clone(&data_channel);
     let mut input = clio::Input::new(filename)?;
+    data_channel.on_close({
+        let done_tx = done_tx.clone();
+        Box::new(move || {
+            let done_tx = done_tx.clone();
+            Box::pin(async move {
+                done_tx.try_send(()).unwrap();
+            })
+        })
+    }
+    );
     data_channel.on_open(Box::new(capture!(with done_tx = done_tx.clone(), move || {
         println!("Ready to send data");
-        let mut buffer = BytesMut::zeroed(1024);
+        let mut buffer = BytesMut::zeroed(CHUNK_SIZE);
         Box::pin(async move {
+            let begin_message = serde_json::to_string(&InfoMessage::Begin { 
+                fileinfo: FileInfo { filename: "file".to_owned(), filesize: None}
+            }).unwrap();
+            match d1.send_text(begin_message).await {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Error sending begin message: {e}");
+                    done_tx.try_send(()).unwrap();
+                    return;
+                }
+            }
+
             let mut bytes_until_wordle = BYTES_UNTIL_WORDLE;
             loop {
-                buffer.resize(1024, 0u8);
+                buffer.resize(CHUNK_SIZE, 0u8);
                 if bytes_until_wordle < buffer.len() {
                     buffer.truncate(bytes_until_wordle);
                 }
@@ -109,7 +133,6 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
                 match n {
                     Ok(0) => {
                         info!("File done");
-                        done_tx.try_send(()).unwrap();
                         break;
                     }
                     Ok(n) => {
@@ -128,9 +151,16 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
                     }
                     Err(e) => {
                         error!("Error reading from data file: {e}");
-                        done_tx.try_send(()).unwrap();
                         break;
                     }
+                }
+            }
+
+            let end_message = serde_json::to_string(&InfoMessage::End { }).unwrap();
+            match d1.send_text(end_message).await {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Error sending end message: {e}");
                 }
             }
         })
@@ -187,7 +217,7 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
     //println!("Press ctrl-c to stop");
     tokio::select! {
         _ = done_rx.recv() => {
-            //println!("received done signal!");
+            println!("received done signal!");
         }
         _ = tokio::signal::ctrl_c() => {
             println!();
@@ -195,7 +225,7 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
     };
 
     info!("Stopping server");
-    loop {}
+    // loop {}
     peer_connection.close().await?;
 
     Ok(())

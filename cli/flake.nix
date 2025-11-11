@@ -36,7 +36,9 @@
               ])
               rust-analyzer-nightly
               pkg-config
+              openssl
             ];
+            LD_LIBRARY_PATH = "$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath (with pkgs; [ openssl ])}";
           };
         };
     };

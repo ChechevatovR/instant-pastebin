@@ -3,6 +3,7 @@ mod server;
 mod client;
 mod signalling;
 mod wordle;
+mod common;
 
 use std::io::Write;
 

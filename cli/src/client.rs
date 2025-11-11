@@ -93,6 +93,9 @@ pub(crate) async fn main(session_id: &str) -> Result<()> {
 
             // Register text message handling
             d.on_message(Box::new(move |msg: DataChannelMessage| {
+                if msg.is_string {
+                    return Box::pin(async {});
+                }
                 let sz = msg.data.len();
                 info!("Message from DataChannel '{d_label}': '{sz}'");
                 io::stdout().write_all(&msg.data).unwrap();
