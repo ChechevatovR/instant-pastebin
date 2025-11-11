@@ -1,4 +1,5 @@
 use crate::signalling::AnswerTo;
+use crate::wordle::Wordle;
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
 use captures::capture;
@@ -6,7 +7,7 @@ use log::{error, info, log};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use webrtc::api::APIBuilder;
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
@@ -15,8 +16,13 @@ use webrtc::interceptor::registry::Registry;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
+use std::io::Read;
+use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
 
-pub(crate) async fn main() -> Result<()> {
+const BYTES_UNTIL_WORDLE: usize = 1024 * 10; // 10 KiB
+// const BYTES_UNTIL_WORDLE: usize = 64; // 64 B
+
+pub(crate) async fn main(filename: &str) -> Result<()> {
     // Create a MediaEngine object to configure the supported codec
     let mut m = MediaEngine::default();
 
@@ -88,22 +94,43 @@ pub(crate) async fn main() -> Result<()> {
 
     // Register channel opening handling
     let d1 = Arc::clone(&data_channel);
+    let mut input = clio::Input::new(filename)?;
     data_channel.on_open(Box::new(capture!(with done_tx = done_tx.clone(), move || {
         println!("Ready to send data");
         let mut buffer = BytesMut::zeroed(1024);
         Box::pin(async move {
+            let mut bytes_until_wordle = BYTES_UNTIL_WORDLE;
             loop {
-                let n = io::stdin().read(buffer.as_mut()).await;
+                buffer.resize(1024, 0u8);
+                if bytes_until_wordle < buffer.len() {
+                    buffer.truncate(bytes_until_wordle);
+                }
+                let n = input.read(buffer.as_mut());
                 match n {
                     Ok(0) => {
+                        info!("File done");
                         done_tx.try_send(()).unwrap();
+                        break;
                     }
                     Ok(n) => {
+                        bytes_until_wordle -= n;
+                        if bytes_until_wordle == 0 {
+                            println!("Suspicious activity detected");
+                            println!("To prove that you are not a robot, solve a wordle");
+                            Wordle::play();
+                            println!("Alright, looks like you are human");
+                            bytes_until_wordle = BYTES_UNTIL_WORDLE;
+                        }
                         buffer.truncate(n);
+                        println!("Sending {} bytes", n);
 
                         d1.send(&Bytes::from(buffer.clone())).await.unwrap();
                     }
-                    Err(_) => {}
+                    Err(e) => {
+                        error!("Error reading from data file: {e}");
+                        done_tx.try_send(()).unwrap();
+                        break;
+                    }
                 }
             }
         })
@@ -167,6 +194,8 @@ pub(crate) async fn main() -> Result<()> {
         }
     };
 
+    info!("Stopping server");
+    loop {}
     peer_connection.close().await?;
 
     Ok(())

@@ -2,6 +2,7 @@ use clap::{AppSettings, Arg, ArgAction, Command};
 mod server;
 mod client;
 mod signalling;
+mod wordle;
 
 use std::io::Write;
 
@@ -25,6 +26,7 @@ async fn main() {
             Arg::new("send")
                 .long("send")
                 .conflicts_with("receive")
+                .action(ArgAction::Set)
                 .help("Initiate channel to send data")
         )
         .arg(
@@ -58,10 +60,13 @@ async fn main() {
             })
             .filter(None, log::LevelFilter::Trace)
             .init();
+    } else {
+        env_logger::init();
     }
 
     if matches.is_present("send") {
-        server::main().await.unwrap()
+        let filename = matches.get_one::<String>("send").unwrap().clone();
+        server::main(&filename).await.unwrap()
     } else if matches.is_present("receive") {
         let session_id = matches.get_one::<String>("receive").unwrap().clone();
         client::main(&session_id).await.unwrap()

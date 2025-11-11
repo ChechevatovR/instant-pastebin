@@ -82,7 +82,7 @@ pub(crate) async fn main(session_id: &str) -> Result<()> {
             let d_id2 = d_id;
             d.on_close(Box::new(capture!(clone done_tx, move || {
                 info!("Data channel closed");
-                let _ = done_tx.try_send(());
+                // let _ = done_tx.try_send(());
                 Box::pin(async {})
             })));
 
