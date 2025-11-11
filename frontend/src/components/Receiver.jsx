@@ -37,7 +37,7 @@ export default function Receiver() {
         await waitForIceGatheringComplete(pc)
 
         // TODO: implement publicKey exchange
-        const body = { peer: { publicKey: 'TODO', webRTC: { offer: JSON.stringify(pc.localDescription) } } }
+        const body = { peer: { publicKey: 'TODO', webRTC: { offer: pc.localDescription } } }
         const resp = await fetch(`${BACKEND_BASE}/api/peer`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
         })
@@ -51,7 +51,7 @@ export default function Receiver() {
                 const p = await r.json()
                 if (p.client && p.client.webRTC && p.client.webRTC.answer) {
                     clearInterval(pollRef.current)
-                    const answer = JSON.parse(p.client.webRTC.answer)
+                    const answer = p.client.webRTC.answer
                     await pc.setRemoteDescription(answer)
                     setState('connected')
                 }
@@ -69,7 +69,10 @@ export default function Receiver() {
         if (!file) return
         setProgress({ sent: 0, total: file.size })
 
-        dcRef.current.send(JSON.stringify({ fileName: file.name, fileSize: file.size }))
+        dcRef.current.send(JSON.stringify({ 
+            type: "begin",
+            fileInfo: {fileName: file.name, fileSize: file.size}
+        }))
 
         let offset = 0
         while (offset < file.size) {
@@ -80,6 +83,10 @@ export default function Receiver() {
             setProgress({ sent: offset, total: file.size })
             await sleep(10)
         }
+
+        dcRef.current.send(JSON.stringify({ 
+            type: "end",
+        }))
     }
 
 

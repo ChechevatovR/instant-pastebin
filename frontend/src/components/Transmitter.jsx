@@ -3,7 +3,7 @@ import Card from 'react-bootstrap/Card'
 import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
-import { BACKEND_BASE, STUN_SERVERS } from '../config'
+import { BACKEND_BASE, STUN_SERVERS, CHUNK_SIZE } from '../config'
 import { waitForIceGatheringComplete } from '../utils/webrtc'
 
 export default function Transmitter() {
@@ -23,7 +23,7 @@ export default function Transmitter() {
             setState('idle')
             return
         }
-        const offer = JSON.parse(j.peer.webRTC.offer)
+        const offer = j.peer.webRTC.offer
 
         const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS })
         pcRef.current = pc
@@ -45,7 +45,7 @@ export default function Transmitter() {
         // TODO: implement publicKey exchange
         await fetch(`${BACKEND_BASE}/api/peer/${id}/client`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ client: { publicKey: 'TODO', webRTC: { answer: JSON.stringify(pc.localDescription) } } })
+            body: JSON.stringify({ client: { publicKey: 'TODO', webRTC: { answer: pc.localDescription } } })
         })
 
         setState('answer_posted')
@@ -55,8 +55,21 @@ export default function Transmitter() {
         if (typeof data === 'string') {
             try {
                 const meta = JSON.parse(data)
-                incoming.current = { name: meta.fileName, size: meta.fileSize, chunks: [], received: 0 }
-                setProgress({ received: 0, total: meta.fileSize, name: meta.fileName })
+                if (meta.type == "begin") {
+                    incoming.current = { name: meta.fileInfo.fileName, size: meta.fileInfo.fileSize, chunks: [], received: 0 }
+                    setProgress({ received: 0, total: meta.fileSize, name: meta.fileName })
+                } else if (meta.type == "end") {
+                    const blob = new Blob(incoming.current.chunks)
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = incoming.current.name || 'file.bin'
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(url)
+                    setState('done')
+                }
             } catch {
                 console.warn('string message', data)
             }
@@ -65,18 +78,6 @@ export default function Transmitter() {
             incoming.current.chunks.push(arr)
             incoming.current.received += arr.byteLength
             setProgress({ received: incoming.current.received, total: incoming.current.size, name: incoming.current.name })
-            if (incoming.current.received >= incoming.current.size) {
-                const blob = new Blob(incoming.current.chunks)
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = incoming.current.name || 'file.bin'
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-                URL.revokeObjectURL(url)
-                setState('done')
-            }
         }
     }
 
