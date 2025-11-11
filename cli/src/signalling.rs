@@ -16,8 +16,10 @@ pub struct OfferTo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfferPeerTo {
-    pub publicKey: String,
-    pub webRTC: OfferPeerWebRTCTo
+    #[serde(rename = "publicKey")]
+    pub public_key: String,
+    #[serde(rename = "webRTC")]
+    pub web_rtc: OfferPeerWebRTCTo
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,8 +39,10 @@ pub struct AnswerTo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnswerPeerTo {
-    pub publicKey: Option<String>,
-    pub webRTC: AnswerPeerWebRTCTo
+    #[serde(rename = "publicKey")]
+    pub public_key: Option<String>,
+    #[serde(rename = "webRTC")]
+    pub web_rtc: AnswerPeerWebRTCTo
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,8 +58,8 @@ impl SignallingClient {
     pub async fn post_offer(&self, offer: RTCSessionDescription) -> anyhow::Result<OfferResponse> {
         let body = OfferTo {
             peer: OfferPeerTo {
-                publicKey: "none".to_string(),
-                webRTC: OfferPeerWebRTCTo {
+                public_key: "none".to_string(),
+                web_rtc: OfferPeerWebRTCTo {
                     offer
                 }
             }
@@ -70,8 +74,8 @@ impl SignallingClient {
     pub async fn post_answer(&self, id: String, answer: RTCSessionDescription) -> anyhow::Result<()> {
         let body = AnswerTo {
             client: AnswerPeerTo {
-                publicKey: Option::from("none".to_string()),
-                webRTC: AnswerPeerWebRTCTo {
+                public_key: Option::from("none".to_string()),
+                web_rtc: AnswerPeerWebRTCTo {
                     answer
                 }
             }

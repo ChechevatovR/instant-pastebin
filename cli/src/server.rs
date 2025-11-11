@@ -145,7 +145,7 @@ pub(crate) async fn main() -> Result<()> {
 
                 let result = signalling.get_answer(&session_id.identifier).await;
                 match result {
-                    Ok(answer) => {break answer.client.webRTC.answer;}
+                    Ok(answer) => {break answer.client.web_rtc.answer;}
                     Err(_) => {
                         continue;
                     }

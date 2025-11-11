@@ -106,7 +106,7 @@ pub(crate) async fn main(session_id: &str) -> Result<()> {
 
     let signalling = crate::signalling::SignallingClient::new("http://64.188.74.63".to_owned());
     let offer_to = signalling.get_offer(session_id).await?;
-    let offer = offer_to.peer.webRTC.offer;
+    let offer = offer_to.peer.web_rtc.offer;
 
     // Set the remote SessionDescription
     peer_connection.set_remote_description(offer).await?;
