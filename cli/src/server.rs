@@ -111,8 +111,9 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
         println!("Ready to send data");
         let mut buffer = BytesMut::zeroed(CHUNK_SIZE);
         Box::pin(async move {
+            let len: usize = input.len().expect("Can only send files of known size") as usize;
             let begin_message = serde_json::to_string(&InfoMessage::Begin { 
-                fileinfo: FileInfo { filename: "file".to_owned(), filesize: None}
+                fileinfo: FileInfo { filename: "file".to_owned(), filesize: Some(len) },
             }).unwrap();
             match d1.send_text(begin_message).await {
                 Ok(_) => (),
