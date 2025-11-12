@@ -104,6 +104,7 @@ export default function Receiver() {
                     }
                     setState('downloading')
                     closeConnection()
+                    downloadFile()
                 }
             } catch {
                 console.warn('string message', data)
@@ -145,7 +146,8 @@ export default function Receiver() {
     }
 
     const kb = (n) => (n == null ? '0.0' : (n / 1024).toFixed(1))
-    const showGame = !!incoming.current
+    // const showGame = !!incoming.current
+    const showGame = false
     const showProgress = (progress.total != null) || (incoming.current && incoming.current.endReceived)
 
     return (

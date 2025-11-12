@@ -7,6 +7,9 @@ import { BACKEND_BASE, STUN_SERVERS, CHUNK_SIZE } from '../config'
 import { waitForIceGatheringComplete, sleep } from '../utils/webrtc'
 import Game, { getRandomGameType } from './Game'
 
+const BUFFER_SIZE_LOW = CHUNK_SIZE * 4
+const BUFFER_SIZE_HIGH = CHUNK_SIZE * 8
+
 export default function Transmitter() {
     const pcRef = useRef(null)
     const dcRef = useRef(null)
@@ -86,7 +89,8 @@ export default function Transmitter() {
             totalSize: total,
             prepared: true,
             sentBytes: 0,
-            sentChunks: 0
+            sentChunks: 0,
+            allowedToSend: 0,
         }
 
         setProgress({ sent: 0, total: total })
@@ -98,6 +102,29 @@ export default function Transmitter() {
         }))
 
         setState('ready')
+
+        dcRef.current.bufferedAmountLowThreshold = BUFFER_SIZE_LOW;
+        dcRef.current.onbufferedamountlow = async (ev) => {
+            await sendWhileBufferedUnderThreshold()
+        };
+        await sendWhileBufferedUnderThreshold()
+    }
+
+    async function sendWhileBufferedUnderThreshold() {
+        while (chunksRef.current.sentChunks <= chunksRef.current.allowedToSend
+                && dcRef.current.bufferedAmount <= BUFFER_SIZE_HIGH) {
+            await sendNextChunk()
+
+            const { chunks, sentChunks } = chunksRef.current
+            if (sentChunks >= chunks.length) {
+                break
+            }
+        }
+    }
+
+    async function allowMoreChunks() {
+        chunksRef.current.allowedToSend += chunksRef.current.chunks.length / 10
+        await sendWhileBufferedUnderThreshold()
     }
 
     async function sendNextChunk() {
@@ -121,8 +148,6 @@ export default function Transmitter() {
         chunksRef.current.sentBytes += (chunks[sentChunks].byteLength ?? chunks[sentChunks].length ?? 0)
 
         setProgress(prev => ({ ...prev, sent: chunksRef.current.sentBytes }))
-
-        await sleep(10)
 
         if (chunksRef.current.sentChunks >= chunks.length) {
             dcRef.current.send(JSON.stringify({ type: "end" }))
@@ -178,7 +203,7 @@ export default function Transmitter() {
                 </div>
 
                 <div className="mt-3">
-                    <Game visible={showGame} onAction={sendNextChunk} type={gameType.current} />
+                    <Game visible={showGame} onAction={allowMoreChunks} type={gameType.current} />
                 </div>
             </Card.Body>
         </Card>
