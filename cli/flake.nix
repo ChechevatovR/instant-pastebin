@@ -37,8 +37,15 @@
               rust-analyzer-nightly
               pkg-config
               openssl
+
+              # Doom
+              cmake
+              SDL2
+              SDL2_mixer
             ];
-            LD_LIBRARY_PATH = "$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath (with pkgs; [ openssl ])}";
+            shellHook = ''
+                export LD_LIBRARY_PATH="''${LD_LIBRARY_PATH:+LD_LIBRARY_PATH:}${pkgs.lib.makeLibraryPath (with pkgs; [ openssl ])}:$PWD/games/sdl2-doom/build";
+            '';
           };
         };
     };

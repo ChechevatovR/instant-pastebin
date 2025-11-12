@@ -4,6 +4,7 @@ mod client;
 mod signalling;
 mod wordle;
 mod common;
+mod doom;
 
 use std::io::Write;
 
