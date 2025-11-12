@@ -19,9 +19,21 @@
             denv.packages = with pkgs; [
                 nodejs
 
+                typescript-language-server
+
                 # Doom
+
+                # How to fix emscripted
+                # cp -r /nix/store/ajv94air67dbyjramrjlv0y6j969hsyx-emscripten-2.0.27/share/emscripten/cache ~/.emscripten_cache
+                # chmod u+rwX -R ~/.emscripten_cache
+                # export EM_CACHE=~/.emscripten_cache
                 emscripten
+                SDL2
+                SDL2_image
+                SDL2_ttf
             ];
+
+            denv.env.EM_CACHE = "$HOME/.emscripten_cache";
         };
       };
       flake = { };

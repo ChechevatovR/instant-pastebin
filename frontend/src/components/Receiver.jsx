@@ -6,6 +6,7 @@ import ProgressBar from 'react-bootstrap/ProgressBar'
 import { BACKEND_BASE, STUN_SERVERS } from '../config'
 import { waitForIceGatheringComplete } from '../utils/webrtc'
 import Game from './Game'
+import Doom  from './Doom'
 
 export default function Receiver() {
     const [id, setId] = useState('')
@@ -164,6 +165,7 @@ export default function Receiver() {
 
                 <div className="mt-3">
                     <Game visible={showGame} onAction={downloadNextChunk} />
+                    { false && showGame && <Doom onAction={downloadNextChunk}/> }
                 </div>
             </Card.Body>
         </Card>

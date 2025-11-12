@@ -25,3 +25,8 @@ dist-ssr
 
 # Nix
 .direnv
+
+# Doom
+public/doom/shareware.wad
+public/doom/wasm-doom.wasm
+src/doom/wasm-doom.js
