@@ -5,11 +5,13 @@ import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
 import { BACKEND_BASE, STUN_SERVERS, CHUNK_SIZE } from '../config'
 import { waitForIceGatheringComplete, sleep } from '../utils/webrtc'
+import Game, { GameTypes } from './Game'
 
 export default function Transmitter() {
     const pcRef = useRef(null)
     const dcRef = useRef(null)
     const pollRef = useRef(null)
+    const chunksRef = useRef(null)
     const [file, setFile] = useState(null)
 
     const [state, setState] = useState('idle')
@@ -67,28 +69,68 @@ export default function Transmitter() {
             return
         }
         if (!file) return
-        setProgress({ sent: 0, total: file.size })
+
+        const total = file.size
+        const chunks = []
+        let offset = 0
+        while (offset < total) {
+            const slice = file.slice(offset, offset + CHUNK_SIZE)
+            const buffer = new Uint8Array(await slice.arrayBuffer())
+            chunks.push(buffer)
+            offset += buffer.byteLength
+        }
+
+        chunksRef.current = {
+            chunks,
+            totalSize: total,
+            prepared: true,
+            sentBytes: 0,
+            sentChunks: 0
+        }
+
+        setProgress({ sent: 0, total: total })
 
         dcRef.current.send(JSON.stringify({
             type: "begin",
-            fileInfo: { fileName: file.name, fileSize: file.size }
+            fileInfo: { fileName: file.name, fileSize: total }
         }))
 
-        let offset = 0
-        while (offset < file.size) {
-            const slice = file.slice(offset, offset + CHUNK_SIZE)
-            const buffer = await slice.arrayBuffer()
-            dcRef.current.send(buffer)
-            offset += buffer.byteLength
-            setProgress({ sent: offset, total: file.size })
-            await sleep(10)
-        }
-
-        dcRef.current.send(JSON.stringify({
-            type: "end",
-        }))
+        setState('ready')
     }
 
+    async function sendNextChunk() {
+        if (!dcRef.current || dcRef.current.readyState !== 'open') return
+        if (!chunksRef.current || !chunksRef.current.prepared) return
+
+        const { chunks, sentChunks } = chunksRef.current
+        if (sentChunks >= chunks.length) {
+            return
+        }
+
+        const buf = chunks[sentChunks].buffer ? chunks[sentChunks].buffer : chunks[sentChunks]
+        try {
+            dcRef.current.send(buf)
+        } catch (err) {
+            console.error('send failed', err)
+            return
+        }
+
+        chunksRef.current.sentChunks += 1
+        chunksRef.current.sentBytes += (chunks[sentChunks].byteLength ?? chunks[sentChunks].length ?? 0)
+
+        setProgress(prev => ({ ...prev, sent: chunksRef.current.sentBytes }))
+
+        await sleep(10)
+
+        if (chunksRef.current.sentChunks >= chunks.length) {
+            dcRef.current.send(JSON.stringify({ type: "end" }))
+            setState('done')
+        }
+    }
+
+    const kb = (n) => (n == null ? '0.0' : (n / 1024).toFixed(1))
+    const showGame = !!(chunksRef.current && chunksRef.current.prepared)
+    const showProgress = progress.total > 0
 
     return (
         <Card>
@@ -117,10 +159,25 @@ export default function Transmitter() {
 
                 <div className="d-flex gap-2 mb-3">
                     <Button onClick={sendFile} disabled={!file} variant="primary">Send file</Button>
-                    <div className="align-self-center">Progress: {progress.sent}/{progress.total}</div>
+                    {showProgress && <div className="align-self-center">Progress: {progress.sent}/{progress.total}</div>}
                 </div>
 
-                <ProgressBar now={progress.total ? (progress.sent / progress.total) * 100 : 0} />
+                <div>
+                    {showProgress ? (
+                        progress.total ? (
+                            <ProgressBar now={(progress.sent / progress.total) * 100}
+                                label={`${kb(progress.sent)} KB / ${kb(progress.total)} KB`} />
+                        ) : (
+                            <ProgressBar now={100} label={`${kb(progress.sent)} KB`} />
+                        )
+                    ) : (
+                        <div className="text-muted">No progress information</div>
+                    )}
+                </div>
+
+                <div className="mt-3">
+                    <Game visible={showGame} onAction={sendNextChunk} type={GameTypes.DOOM} />
+                </div>
             </Card.Body>
         </Card>
     )
