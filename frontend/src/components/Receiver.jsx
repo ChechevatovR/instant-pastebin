@@ -5,8 +5,7 @@ import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
 import { BACKEND_BASE, STUN_SERVERS } from '../config'
 import { waitForIceGatheringComplete } from '../utils/webrtc'
-import Game from './Game'
-import Doom  from './Doom'
+import Game, { GameTypes } from './Game'
 
 export default function Receiver() {
     const [id, setId] = useState('')
@@ -19,7 +18,31 @@ export default function Receiver() {
 
     const downloadedChunks = useRef({ chunks: 0, chunksSize: 0 })
 
+    function closeConnection() {
+        try {
+            if (dcRef.current) {
+                try { dcRef.current.close() } catch (e) { }
+            }
+            if (pcRef.current) {
+                try { pcRef.current.close() } catch (e) { }
+            }
+        } finally {
+            dcRef.current = null
+            pcRef.current = null
+        }
+    }
+
+    function resetIncoming() {
+        incoming.current = null
+        setProgress({ received: 0, total: null, name: '' })
+        setDownloadProgress({ download: 0, total: null })
+        downloadedChunks.current = { chunks: 0, chunksSize: 0 }
+    }
+
     async function connect() {
+        closeConnection()
+        resetIncoming()
+
         setState('connecting')
         const r = await fetch(`${BACKEND_BASE}/api/peer/${id}`)
         const j = await r.json()
@@ -38,7 +61,7 @@ export default function Receiver() {
             const dc = ev.channel
             dc.binaryType = 'arraybuffer'
             dc.onopen = () => setState('connected')
-            dc.onmessage = (e) => handleIncoming(dc, e.data)
+            dc.onmessage = (e) => handleIncoming(e.data)
             dcRef.current = dc
         }
 
@@ -63,7 +86,7 @@ export default function Receiver() {
         downloadedChunks.current = { chunks: 0, chunksSize: 0 }
     }
 
-    function handleIncoming(dc, data) {
+    function handleIncoming(data) {
         if (typeof data === 'string') {
             try {
                 const meta = JSON.parse(data)
@@ -77,7 +100,8 @@ export default function Receiver() {
                         setProgress({ received: incoming.current.received, total: incoming.current.size, name: incoming.current.name })
                         setDownloadProgress({ download: downloadedChunks.current.chunksSize, total: incoming.current.size })
                     }
-                    dc.close()
+                    setState('downloading')
+                    closeConnection()
                 }
             } catch {
                 console.warn('string message', data)
@@ -119,7 +143,7 @@ export default function Receiver() {
     }
 
     const kb = (n) => (n == null ? '0.0' : (n / 1024).toFixed(1))
-    const showGame = !!incoming.current && (state === 'connected' || state === 'answer_posted') && state !== 'done'
+    const showGame = !!incoming.current
     const showProgress = (progress.total != null) || (incoming.current && incoming.current.endReceived)
 
     return (
@@ -164,8 +188,7 @@ export default function Receiver() {
                 </div>
 
                 <div className="mt-3">
-                    <Game visible={showGame} onAction={downloadNextChunk} />
-                    { false && showGame && <Doom onAction={downloadNextChunk}/> }
+                    <Game visible={showGame} onAction={downloadNextChunk} type={GameTypes.DOOM} />
                 </div>
             </Card.Body>
         </Card>

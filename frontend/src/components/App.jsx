@@ -9,18 +9,18 @@ export default function App() {
     return (
         <Layout>
             <Tabs
-                defaultActiveKey="Receiver"
+                defaultActiveKey="Transmitter"
                 id="main-tabs"
                 className="mb-3"
                 fill
                 justify
             >
-                <Tab eventKey="Receiver" title="Receiver">
-                    <Receiver />
+                <Tab eventKey="Transmitter" title="Transmitter">
+                    <Transmitter />
                 </Tab>
 
-                <Tab eventKey="connect" title="Transmitter">
-                    <Transmitter />
+                <Tab eventKey="Receiver" title="Receiver">
+                    <Receiver />
                 </Tab>
             </Tabs>
         </Layout>

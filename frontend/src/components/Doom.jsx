@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from "react";
 
 import Module from '../doom/wasm-doom.js';
 
-const WIDTH = 950;
-const HEIGHT = 600;
+export const WIDTH = 950;
+export const HEIGHT = 600;
 
 const sharewhare = `${import.meta.env.BASE_URL}doom/shareware.wad`
 console.log(sharewhare);
@@ -53,23 +53,21 @@ export default function Doom({ onAction }) {
         }
     }, []);
 
-    const containerStyle = {
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 50,
-    };
+    // const containerStyle = {
+    //     position: 'fixed',
+    //     inset: 0,
+    //     display: 'flex',
+    //     alignItems: 'center',
+    //     justifyContent: 'center',
+    //     zIndex: 50,
+    // };
 
 
-    const canvasStyle = {
-        position: 'absolute',
-    };
+    // const canvasStyle = {
+    //     position: 'absolute',
+    // };
 
     return (
-        <div style={containerStyle}>
-            <canvas id="canvas" ref={canvasRef} style={canvasStyle} />
-        </div>
+        <canvas id="canvas" ref={canvasRef} />
     );
 }
