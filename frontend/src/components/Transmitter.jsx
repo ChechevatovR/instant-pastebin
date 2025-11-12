@@ -5,7 +5,7 @@ import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
 import { BACKEND_BASE, STUN_SERVERS, CHUNK_SIZE } from '../config'
 import { waitForIceGatheringComplete, sleep } from '../utils/webrtc'
-import Game, { GameTypes } from './Game'
+import Game, { getRandomGameType } from './Game'
 
 export default function Transmitter() {
     const pcRef = useRef(null)
@@ -17,6 +17,7 @@ export default function Transmitter() {
     const [state, setState] = useState('idle')
     const [identifier, setIdentifier] = useState('')
     const [progress, setProgress] = useState({ received: 0, total: 0, name: '' })
+    const gameType = useRef(getRandomGameType())
 
     useEffect(() => () => clearInterval(pollRef.current), [])
 
@@ -89,6 +90,7 @@ export default function Transmitter() {
         }
 
         setProgress({ sent: 0, total: total })
+        gameType.current = getRandomGameType()
 
         dcRef.current.send(JSON.stringify({
             type: "begin",
@@ -159,7 +161,7 @@ export default function Transmitter() {
 
                 <div className="d-flex gap-2 mb-3">
                     <Button onClick={sendFile} disabled={!file} variant="primary">Send file</Button>
-                    {showProgress && <div className="align-self-center">Progress: {progress.sent}/{progress.total}</div>}
+                    {showProgress && <div className="align-self-center">Progress: {`${kb(progress.sent)} KB / ${kb(progress.total)} KB`}</div>}
                 </div>
 
                 <div>
@@ -176,7 +178,7 @@ export default function Transmitter() {
                 </div>
 
                 <div className="mt-3">
-                    <Game visible={showGame} onAction={sendNextChunk} type={GameTypes.DOOM} />
+                    <Game visible={showGame} onAction={sendNextChunk} type={gameType.current} />
                 </div>
             </Card.Body>
         </Card>

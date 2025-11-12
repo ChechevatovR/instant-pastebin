@@ -22,7 +22,10 @@ export default function GameShell({
             if (!isResizing) return
             const dx = e.clientX - resizingRef.current.startX
             const dy = e.clientY - resizingRef.current.startY
-            let newW = Math.max(minWidth, Math.round(resizingRef.current.startW + dx))
+            const parent = shellRef.current?.parentElement
+            const maxW = parent ? parent.clientWidth : Number.POSITIVE_INFINITY
+
+            let newW = Math.max(minWidth, Math.min(maxW, Math.round(resizingRef.current.startW + dx)))
             let newH = Math.max(minHeight, Math.round(resizingRef.current.startH + dy))
             setSize({ w: newW, h: newH })
         }
@@ -53,6 +56,24 @@ export default function GameShell({
             document.removeEventListener('MSFullscreenChange', onFsChange)
         }
     }, [])
+
+    useEffect(() => {
+        const el = shellRef.current
+        if (!el || !el.parentElement) return
+        const parent = el.parentElement
+        const ro = new ResizeObserver(() => {
+            const pw = parent.clientWidth
+            const ph = parent.clientHeight
+            setSize(s => {
+                const w = Math.min(s.w, pw)
+                const h = Math.min(s.h, ph)
+                if (w === s.w && h === s.h) return s
+                return { w: Math.max(minWidth, w), h: Math.max(minHeight, h) }
+            })
+        })
+        ro.observe(parent)
+        return () => ro.disconnect()
+    }, [minWidth, minHeight])
 
     function startResize(e) {
         e.preventDefault()
@@ -90,7 +111,11 @@ export default function GameShell({
     }
 
     function resetSize() {
-        setSize({ w: defaultWidth, h: defaultHeight })
+        const parent = shellRef.current?.parentElement
+        setSize({
+            w: parent ? Math.min(defaultWidth, parent.clientWidth) : defaultWidth,
+            h: defaultHeight
+        })
     }
 
     if (!visible) return null
@@ -98,6 +123,8 @@ export default function GameShell({
     const wrapperStyle = {
         width: isFullscreen ? '100%' : `${size.w}px`,
         height: isFullscreen ? '100%' : `${size.h}px`,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
         border: '1px solid rgba(0,0,0,0.12)',
         borderRadius: 8,
         padding: 8,

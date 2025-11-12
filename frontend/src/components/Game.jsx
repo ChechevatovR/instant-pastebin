@@ -8,20 +8,41 @@ export const GameTypes = {
   DOOM: 'doom',
 };
 
+export const getRandomGameType = () => {
+  const types = Object.values(GameTypes);
+  return types[Math.floor(Math.random() * types.length)];
+}
+
 export default function Game({ visible = true, onAction, type = GameTypes.NONE }) {
-  if (!visible) return null
-  switch (type) {
-    case GameTypes.NONE:
-      return (
-        <Button onClick={onAction} disabled={false} variant="warning">
-          Click to earn/send a block
-        </Button>
-      )
-    case GameTypes.DOOM:
-      return (
-        <GameShell defaultWidth={WIDTH} defaultHeight={HEIGHT}>
-          <Doom onAction={onAction} />
-        </GameShell>
-      )
+  function getGame(gameType, onAction) {
+    switch (gameType) {
+      case GameTypes.DOOM:
+        return <Doom onAction={onAction} />;
+      default:
+        return (
+          <Button onClick={onAction} disabled={false} variant="warning">
+            Click to earn/send a block
+          </Button>
+        );
+    }
   }
+
+  function getGameShellParams(gameType) {
+    switch (gameType) {
+      case GameTypes.DOOM:
+        return { defaultWidth: WIDTH, defaultHeight: HEIGHT };
+      default:
+        return {};
+    }
+  }
+
+  if (!visible) return null
+  const defaultParams = getGameShellParams(type);
+  return (
+    <GameShell
+      {...defaultParams}
+    >
+      {getGame(type, onAction)}
+    </GameShell>
+  )
 }

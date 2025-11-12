@@ -5,7 +5,7 @@ import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
 import { BACKEND_BASE, STUN_SERVERS } from '../config'
 import { waitForIceGatheringComplete } from '../utils/webrtc'
-import Game, { GameTypes } from './Game'
+import Game, { getRandomGameType } from './Game'
 
 export default function Receiver() {
     const [id, setId] = useState('')
@@ -17,6 +17,7 @@ export default function Receiver() {
     const [downloadProgress, setDownloadProgress] = useState({ download: 0, total: 0 })
 
     const downloadedChunks = useRef({ chunks: 0, chunksSize: 0 })
+    const gameType = useRef(getRandomGameType())
 
     function closeConnection() {
         try {
@@ -84,6 +85,7 @@ export default function Receiver() {
         setProgress({ received: 0, total: size ?? null, name: name ?? '' })
         setDownloadProgress({ download: 0, total: size ?? null })
         downloadedChunks.current = { chunks: 0, chunksSize: 0 }
+        gameType.current = getRandomGameType()
     }
 
     function handleIncoming(data) {
@@ -188,7 +190,7 @@ export default function Receiver() {
                 </div>
 
                 <div className="mt-3">
-                    <Game visible={showGame} onAction={downloadNextChunk} type={GameTypes.DOOM} />
+                    <Game visible={showGame} onAction={downloadNextChunk} type={gameType.current} />
                 </div>
             </Card.Body>
         </Card>

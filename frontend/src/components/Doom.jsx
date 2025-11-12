@@ -53,20 +53,6 @@ export default function Doom({ onAction }) {
         }
     }, []);
 
-    // const containerStyle = {
-    //     position: 'fixed',
-    //     inset: 0,
-    //     display: 'flex',
-    //     alignItems: 'center',
-    //     justifyContent: 'center',
-    //     zIndex: 50,
-    // };
-
-
-    // const canvasStyle = {
-    //     position: 'absolute',
-    // };
-
     return (
         <canvas id="canvas" ref={canvasRef} />
     );
