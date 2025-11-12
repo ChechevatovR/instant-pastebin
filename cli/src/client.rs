@@ -1,9 +1,10 @@
+use crate::common::InfoMessage;
 use anyhow::Result;
 use captures::capture;
+use log::{error, info};
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
-use log::{error, info};
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
 use webrtc::api::APIBuilder;
@@ -92,16 +93,29 @@ pub(crate) async fn main(session_id: &str) -> Result<()> {
             }));
 
             // Register text message handling
-            d.on_message(Box::new(move |msg: DataChannelMessage| {
+            // let mut expected_size: usize = 0;
+            // let mut received_size: usize = 0;
+            d.on_message(Box::new(capture!(clone done_tx, move |msg: DataChannelMessage| {
                 if msg.is_string {
+                    let info: InfoMessage = serde_json::from_slice(&msg.data[..]).unwrap();
+                    match info {
+                        InfoMessage::Begin { fileinfo } => {
+                            info!("Begin: name: {}, size: {:?}", fileinfo.filename, fileinfo.filesize);
+                            // expected_size = fileinfo.filesize.unwrap();
+                        }
+                        InfoMessage::End { .. } => {
+                            done_tx.try_send(()).unwrap();
+                        }
+                    }
                     return Box::pin(async {});
                 }
                 let sz = msg.data.len();
                 info!("Message from DataChannel '{d_label}': '{sz}'");
                 io::stdout().write_all(&msg.data).unwrap();
                 io::stdout().flush().unwrap();
+                // received_size += sz;
                 Box::pin(async {})
-            }));
+            })));
             Box::pin(async {})
         })));
 
