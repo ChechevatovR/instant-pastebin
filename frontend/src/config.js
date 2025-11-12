@@ -13,4 +13,4 @@ export const STUN_SERVERS = [
         credential: 'fgSXLhtt0s2cUy9C'
     }
 ]
-export const CHUNK_SIZE = 64 * 1024 // 64KB
+export const CHUNK_SIZE = 16 * 1024 // 16KB
