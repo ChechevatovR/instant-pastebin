@@ -1,126 +1,169 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState } from 'react'
 import Card from 'react-bootstrap/Card'
 import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
-import { BACKEND_BASE, STUN_SERVERS, CHUNK_SIZE } from '../config'
-import { waitForIceGatheringComplete, sleep } from '../utils/webrtc'
+import { BACKEND_BASE, STUN_SERVERS } from '../config'
+import { waitForIceGatheringComplete } from '../utils/webrtc'
+import Game from './Game'
 
 export default function Receiver() {
+    const [id, setId] = useState('')
     const pcRef = useRef(null)
     const dcRef = useRef(null)
-    const pollRef = useRef(null)
-    const [file, setFile] = useState(null)
-
+    const incoming = useRef(null)
     const [state, setState] = useState('idle')
-    const [identifier, setIdentifier] = useState('')
-    const [progress, setProgress] = useState({ received: 0, total: 0, name: '' })
+    const [progress, setProgress] = useState({ received: 0, total: null })
+    const [downloadProgress, setDownloadProgress] = useState({ download: 0, total: 0 })
 
-    useEffect(() => () => clearInterval(pollRef.current), [])
+    const downloadedChunks = useRef({ chunks: 0, chunksSize: 0 })
 
-    async function createReceiver() {
-        setState('creating')
+    async function connect() {
+        setState('connecting')
+        const r = await fetch(`${BACKEND_BASE}/api/peer/${id}`)
+        const j = await r.json()
+        if (!j.peer || !j.peer.webRTC || !j.peer.webRTC.offer) {
+            alert('No offer for this ID')
+            setState('idle')
+            return
+        }
+        const offer = j.peer.webRTC.offer
+
         const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS })
         pcRef.current = pc
-
-
-        const dc = pc.createDataChannel('file')
-        dc.binaryType = 'arraybuffer'
-        dc.onopen = () => setState('connected')
-        dc.onmessage = (e) => console.log('msg', e.data)
-        dcRef.current = dc
-
         pc.oniceconnectionstatechange = () => setState(pc.iceConnectionState)
 
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
+        pc.ondatachannel = (ev) => {
+            const dc = ev.channel
+            dc.binaryType = 'arraybuffer'
+            dc.onopen = () => setState('connected')
+            dc.onmessage = (e) => handleIncoming(e.data)
+            dcRef.current = dc
+        }
+
+        await pc.setRemoteDescription(offer)
+        const answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
         await waitForIceGatheringComplete(pc)
 
         // TODO: implement publicKey exchange
-        const body = { peer: { publicKey: 'TODO', webRTC: { offer: pc.localDescription } } }
-        const resp = await fetch(`${BACKEND_BASE}/api/peer`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        await fetch(`${BACKEND_BASE}/api/peer/${id}/client`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client: { publicKey: 'TODO', webRTC: { answer: pc.localDescription } } })
         })
-        const j = await resp.json()
-        setIdentifier(j.identifier)
-        setState('waiting')
 
-        pollRef.current = setInterval(async () => {
+        setState('answer_posted')
+    }
+
+    function initIncoming(name, size) {
+        incoming.current = { name: name ?? null, size: size ?? null, chunks: [], received: 0, endReceived: false }
+        setProgress({ received: 0, total: size ?? null, name: name ?? '' })
+        setDownloadProgress({ download: 0, total: size ?? null })
+        downloadedChunks.current = { chunks: 0, chunksSize: 0 }
+    }
+
+    function handleIncoming(data) {
+        if (typeof data === 'string') {
             try {
-                const r = await fetch(`${BACKEND_BASE}/api/peer/${j.identifier}/client`)
-                const p = await r.json()
-                if (p.client && p.client.webRTC && p.client.webRTC.answer) {
-                    clearInterval(pollRef.current)
-                    const answer = p.client.webRTC.answer
-                    await pc.setRemoteDescription(answer)
-                    setState('connected')
+                const meta = JSON.parse(data)
+                if (meta.type == "begin") {
+                    initIncoming(meta.fileInfo?.fileName ?? null, meta.fileInfo?.fileSize ?? null)
+                } else if (meta.type == "end") {
+                    if (!incoming.current) initIncoming(null, null)
+                    incoming.current.endReceived = true
+                    if (incoming.current.size == null) {
+                        incoming.current.size = incoming.current.received
+                        setProgress({ received: incoming.current.received, total: incoming.current.size, name: incoming.current.name })
+                        setDownloadProgress({ download: downloadedChunks.current.chunksSize, total: incoming.current.size })
+                    }
                 }
-            } catch (err) {
-                console.error(err)
+            } catch {
+                console.warn('string message', data)
             }
-        }, 2000)
+        } else {
+            const arr = new Uint8Array(data)
+            incoming.current.chunks.push(arr)
+            incoming.current.received += arr.byteLength
+            setProgress({ received: incoming.current.received, total: incoming.current.size ?? null, name: incoming.current.name ?? '' })
+        }
     }
 
-    async function sendFile() {
-        if (!dcRef.current || dcRef.current.readyState !== 'open') {
-            alert('Data channel not open')
-            return
-        }
-        if (!file) return
-        setProgress({ sent: 0, total: file.size })
-
-        dcRef.current.send(JSON.stringify({ 
-            type: "begin",
-            fileInfo: {fileName: file.name, fileSize: file.size}
-        }))
-
-        let offset = 0
-        while (offset < file.size) {
-            const slice = file.slice(offset, offset + CHUNK_SIZE)
-            const buffer = await slice.arrayBuffer()
-            dcRef.current.send(buffer)
-            offset += buffer.byteLength
-            setProgress({ sent: offset, total: file.size })
-            await sleep(10)
-        }
-
-        dcRef.current.send(JSON.stringify({ 
-            type: "end",
-        }))
+    function downloadFile() {
+        const blob = new Blob(incoming.current.chunks)
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = incoming.current.name || 'file.bin'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+        setState('done')
     }
 
+    function downloadNextChunk() {
+        if (!incoming.current) return
+
+        if (downloadedChunks.current.chunks >= incoming.current.chunks.length)
+            return;
+
+        downloadedChunks.current.chunksSize += incoming.current.chunks[downloadedChunks.current.chunks].byteLength
+        downloadedChunks.current.chunks += 1
+        setDownloadProgress({ download: downloadedChunks.current.chunksSize, total: incoming.current.size })
+
+        if (downloadedChunks.current.chunks >= incoming.current.chunks.length && incoming.current.endReceived) {
+            downloadFile()
+        }
+    }
+
+    const kb = (n) => (n == null ? '0.0' : (n / 1024).toFixed(1))
+    const showGame = !!incoming.current && (state === 'connected' || state === 'answer_posted') && state !== 'done'
+    const showProgress = (progress.total != null) || (incoming.current && incoming.current.endReceived)
 
     return (
         <Card>
             <Card.Body>
-                <Card.Title>Receiver (Create ID)</Card.Title>
-                <Card.Text className="text-muted">Create an identifier and wait for a peer to connect. The same data channel is bidirectional — once connected, both sides can send files.</Card.Text>
-
-                <div className="d-flex gap-2 mb-3">
-                    <Button onClick={createReceiver} disabled={!!identifier} variant="primary">Create ID</Button>
-                    <div className="align-self-center">
-                        <strong>{state}</strong>
-                    </div>
-                </div>
-
-                {identifier && (
-                    <Form.Group className="mb-3">
-                        <Form.Label>Share this ID</Form.Label>
-                        <Form.Control readOnly value={identifier} />
-                    </Form.Group>
-                )}
+                <Card.Title>Receive (Enter ID)</Card.Title>
+                <Card.Text className="text-muted">Enter the remote identifier and connect. Once connected, use the controls below to earn files.</Card.Text>
 
                 <Form.Group className="mb-3">
-                    <Form.Label>Choose file to send</Form.Label>
-                    <Form.Control type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                    <Form.Label>Remote ID</Form.Label>
+                    <Form.Control value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g. 807" />
                 </Form.Group>
 
                 <div className="d-flex gap-2 mb-3">
-                    <Button onClick={sendFile} disabled={!file} variant="primary">Send file</Button>
-                    <div className="align-self-center">Progress: {progress.sent}/{progress.total}</div>
+                    <Button onClick={connect} variant="success">Connect</Button>
+                    <div className="align-self-center"><strong>{state}</strong></div>
                 </div>
 
-                <ProgressBar now={progress.total ? (progress.sent / progress.total) * 100 : 0} />
+                <div>
+                    <div className="mb-1">Incoming: {progress.name || '-'}</div>
+                    {showProgress ? (
+                        <>
+                            {progress.total ? (
+                                <ProgressBar now={(progress.received / progress.total) * 100}
+                                    label={`${kb(progress.received)} KB / ${kb(progress.total)} KB`} />
+                            ) : (
+                                <ProgressBar now={100} label={`${kb(progress.received)} KB`} />
+                            )}
+
+                            <div style={{ marginTop: 8 }}>
+                                {downloadProgress.total ? (
+                                    <ProgressBar now={(downloadProgress.download / downloadProgress.total) * 100}
+                                        label={`Unlocked ${kb(downloadProgress.download)} KB / ${kb(downloadProgress.total)} KB`} />
+                                ) : (
+                                    <ProgressBar now={(downloadProgress.download > 0 ? 100 : 0)} label={`Unlocked ${kb(downloadProgress.download)} KB`} />
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-muted">No progress information</div>
+                    )}
+                </div>
+
+                <div className="mt-3">
+                    <Game visible={showGame} onAction={downloadNextChunk} />
+                </div>
             </Card.Body>
         </Card>
     )
