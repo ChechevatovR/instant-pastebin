@@ -37,7 +37,7 @@ export default function Receiver() {
             const dc = ev.channel
             dc.binaryType = 'arraybuffer'
             dc.onopen = () => setState('connected')
-            dc.onmessage = (e) => handleIncoming(e.data)
+            dc.onmessage = (e) => handleIncoming(dc, e.data)
             dcRef.current = dc
         }
 
@@ -62,7 +62,7 @@ export default function Receiver() {
         downloadedChunks.current = { chunks: 0, chunksSize: 0 }
     }
 
-    function handleIncoming(data) {
+    function handleIncoming(dc, data) {
         if (typeof data === 'string') {
             try {
                 const meta = JSON.parse(data)
@@ -76,6 +76,7 @@ export default function Receiver() {
                         setProgress({ received: incoming.current.received, total: incoming.current.size, name: incoming.current.name })
                         setDownloadProgress({ download: downloadedChunks.current.chunksSize, total: incoming.current.size })
                     }
+                    dc.close()
                 }
             } catch {
                 console.warn('string message', data)
