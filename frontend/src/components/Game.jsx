@@ -4,7 +4,7 @@ import Doom, { WIDTH, HEIGHT } from './Doom';
 import GameShell from './GameShell';
 
 export const GameTypes = {
-  NONE: 'none',
+  // NONE: 'none',
   DOOM: 'doom',
 };
 

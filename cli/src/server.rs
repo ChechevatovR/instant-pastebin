@@ -20,7 +20,7 @@ use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use std::io::Read;
 use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
 
-const CHUNK_SIZE: usize = 64 * 1024;
+const CHUNK_SIZE: usize = 16 * 1024;
 const BYTES_UNTIL_WORDLE: usize = 1024 * 10; // 10 KiB
 // const BYTES_UNTIL_WORDLE: usize = 64; // 64 B
 

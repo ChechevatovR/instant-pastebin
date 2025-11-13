@@ -123,7 +123,7 @@ export default function Transmitter() {
     }
 
     async function allowMoreChunks() {
-        chunksRef.current.allowedToSend += Math.max(chunksRef.current.chunks.length / 10, 1)
+        chunksRef.current.allowedToSend += Math.max(chunksRef.current.chunks.length / 22, 1)
         await sendWhileBufferedUnderThreshold()
     }
 
@@ -199,6 +199,17 @@ export default function Transmitter() {
                         )
                     ) : (
                         <div className="text-muted">No progress information</div>
+                    )}
+                </div>
+
+                <div>
+                    {showProgress && (
+                        progress.total ? (<>
+                            <strong>Amount allowed to be sent, shoot enemies to earn more</strong>
+                            <ProgressBar now={(chunksRef.current.allowedToSend * CHUNK_SIZE / progress.total) * 100} />
+                        </>) : (
+                            <ProgressBar now={100} />
+                        )
                     )}
                 </div>
 

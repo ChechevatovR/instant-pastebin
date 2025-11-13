@@ -145,12 +145,12 @@ pub(crate) async fn main(session_id: &str) -> Result<()> {
     // Output the answer in base64 so we can paste it in browser
     if let Some(local_desc) = peer_connection.local_description().await {
         signalling.post_answer(session_id.to_owned(), local_desc).await?;
-        println!("post answer success");
+        eprintln!("post answer success");
     } else {
         panic!("generate local_description failed!");
     }
 
-    println!("Press ctrl-c to stop");
+    eprintln!("Press ctrl-c to stop");
     tokio::select! {
         _ = done_rx.recv() => {
             info!("received done signal!");
