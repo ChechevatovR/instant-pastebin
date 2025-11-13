@@ -5,7 +5,7 @@ import Form from 'react-bootstrap/Form'
 import ProgressBar from 'react-bootstrap/ProgressBar'
 import { BACKEND_BASE, STUN_SERVERS, CHUNK_SIZE } from '../config'
 import { waitForIceGatheringComplete, sleep } from '../utils/webrtc'
-import Game, { getRandomGameType } from './Game'
+import Game, { getRandomGameType, getGameActionDescription } from './Game'
 
 const BUFFER_SIZE_LOW = CHUNK_SIZE * 4
 const BUFFER_SIZE_HIGH = CHUNK_SIZE * 8
@@ -205,7 +205,7 @@ export default function Transmitter() {
                 <div>
                     {showProgress && (
                         progress.total ? (<>
-                            <strong>Amount allowed to be sent, shoot enemies to earn more</strong>
+                            <strong>Amount allowed to be sent, {getGameActionDescription(gameType.current)} to earn more</strong>
                             <ProgressBar now={(chunksRef.current.allowedToSend * CHUNK_SIZE / progress.total) * 100} />
                         </>) : (
                             <ProgressBar now={100} />
