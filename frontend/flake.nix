@@ -23,10 +23,7 @@
 
                 # Doom
 
-                # How to fix emscripted
-                # cp -r /nix/store/ajv94air67dbyjramrjlv0y6j969hsyx-emscripten-2.0.27/share/emscripten/cache ~/.emscripten_cache
-                # chmod u+rwX -R ~/.emscripten_cache
-                # export EM_CACHE=~/.emscripten_cache
+                # How to fix emscripten
                 emscripten
                 SDL2
                 SDL2_image

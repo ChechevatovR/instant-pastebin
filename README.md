@@ -34,3 +34,11 @@
 
 В коде клиента захардкожен адрес хранилища сессий.
 Если вы хотите использовать свой -- необходимо заменить адрес в исходном коде программы
+
+#### Сборка DOOM
+
+**Prerequisites:** установленный `emscripten`, библиотеки `SDL2`, `SDL2_image`, `SDL2_ttf`.
+
+В директории `frontend/games/wasmDOOM/src` выполнить `make`. Скопировать файлы из `frontend/games/wasmDOOM/public`:
+- `shareware.wad` и `wasm/wasm-doom.wasm` в `frontend/public/doom/`
+- `wasm/wasm-doom.js` в `frontend/src/doom/`
