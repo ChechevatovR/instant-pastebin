@@ -111,7 +111,7 @@ export default function Transmitter() {
     }
 
     async function sendWhileBufferedUnderThreshold() {
-        while (chunksRef.current.sentChunks <= chunksRef.current.allowedToSend
+        while (chunksRef.current.sentChunks < chunksRef.current.allowedToSend
                 && dcRef.current.bufferedAmount <= BUFFER_SIZE_HIGH) {
             await sendNextChunk()
 
@@ -123,7 +123,7 @@ export default function Transmitter() {
     }
 
     async function allowMoreChunks() {
-        chunksRef.current.allowedToSend += chunksRef.current.chunks.length / 10
+        chunksRef.current.allowedToSend += Math.max(chunksRef.current.chunks.length / 10, 1)
         await sendWhileBufferedUnderThreshold()
     }
 
