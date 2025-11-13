@@ -51,15 +51,15 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
         ice_servers: vec![RTCIceServer {
             urls: vec![
                 "stun:stun.l.google.com:19302".to_owned(),
-                // "stun:stun1.l.google.com:19302".to_owned(),
-                // "stun:stun2.l.google.com:19302".to_owned(),
-                // "stun:stun3.l.google.com:19302".to_owned(),
-                // "stun:stun4.l.google.com:19302".to_owned(),
-                // "stun:stun.relay.metered.ca:80".to_owned(),
-                // "turn:global.relay.metered.ca:80".to_owned(),
-                // "turn:global.relay.metered.ca:80?transport=tcp".to_owned(),
-                // "turn:global.relay.metered.ca:443".to_owned(),
-                // "turns:global.relay.metered.ca:443?transport=tcp".to_owned(),
+                "stun:stun1.l.google.com:19302".to_owned(),
+                "stun:stun2.l.google.com:19302".to_owned(),
+                "stun:stun3.l.google.com:19302".to_owned(),
+                "stun:stun4.l.google.com:19302".to_owned(),
+                "stun:stun.relay.metered.ca:80".to_owned(),
+                "turn:global.relay.metered.ca:80".to_owned(),
+                "turn:global.relay.metered.ca:80?transport=tcp".to_owned(),
+                "turn:global.relay.metered.ca:443".to_owned(),
+                "turns:global.relay.metered.ca:443?transport=tcp".to_owned(),
             ],
             username: "6fb0f47d8cb4265a38814e9d".to_owned(),
             credential: "fgSXLhtt0s2cUy9C".to_owned(),
@@ -194,7 +194,7 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
 
     let session_id = if let Some(local_desc) = peer_connection.local_description().await {
         let x = signalling.post_offer(local_desc).await?;
-        println!("offer response: {}", x.identifier);
+        println!("Session ID: {}", x.identifier);
         x
     } else {
         panic!("generate local_description failed!");

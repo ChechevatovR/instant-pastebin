@@ -30,6 +30,9 @@ impl Wordle {
                 println!("Guess a 5-letter word");
                 continue;
             }
+            if line == "debug" {
+                break Some(());
+            }
             let guess_result = wordle.guess(line.clone());
             match guess_result {
                 Win => {

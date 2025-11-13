@@ -1,7 +1,7 @@
 use crate::common::InfoMessage;
 use anyhow::Result;
 use captures::capture;
-use log::{error, info};
+use log::{error, info, warn};
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
@@ -145,12 +145,12 @@ pub(crate) async fn main(session_id: &str) -> Result<()> {
     // Output the answer in base64 so we can paste it in browser
     if let Some(local_desc) = peer_connection.local_description().await {
         signalling.post_answer(session_id.to_owned(), local_desc).await?;
-        eprintln!("post answer success");
+        info!("post answer success");
     } else {
         panic!("generate local_description failed!");
     }
 
-    eprintln!("Press ctrl-c to stop");
+    warn!("Press ctrl-c to stop");
     tokio::select! {
         _ = done_rx.recv() => {
             info!("received done signal!");
