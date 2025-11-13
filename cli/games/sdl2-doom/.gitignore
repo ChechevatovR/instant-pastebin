@@ -19,3 +19,5 @@ README-SDL.txt
 build/*
 cmake-*/
 .ccls-cache
+
+!build/libsdl2-doom-lib.so
