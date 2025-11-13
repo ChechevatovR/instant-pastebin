@@ -141,7 +141,14 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
                         if bytes_until_wordle == 0 {
                             println!("Suspicious activity detected");
                             println!("To prove that you are not a robot, solve a wordle");
-                            Wordle::play();
+                            match Wordle::play() {
+                                Some(_) => {}
+                                None => {
+                                    println!("Only a true robot is unable to solve wordle. Terminating transfer");
+                                    done_tx.try_send(()).unwrap();
+                                    break;
+                                }
+                            }
                             println!("Alright, looks like you are human");
                             bytes_until_wordle = BYTES_UNTIL_WORDLE;
                         }
@@ -227,6 +234,7 @@ pub(crate) async fn main(filename: &str) -> Result<()> {
 
     info!("Stopping server");
     // loop {}
+    data_channel.close().await?;
     peer_connection.close().await?;
 
     Ok(())
