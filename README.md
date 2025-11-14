@@ -4,8 +4,9 @@
 
 ---
 
-Реализация p2p передачи файлов поверх WebRTC с Web и CLI реализациями клиентов.
+Сервис для защищённой одноразовой передачи данных между устройствами, предоставляющий как простой веб-интерфейс, так и консольный интерфейс. Для обеспечения конфиденциальности используется peer-to-peer соединение. Сервис нацелен на скрытие передачи большого количества информации путем внесения непредсказуемых задержек, обычно не встречающихся в подобных системах. Задержки вносятся путем геймификации процесса передачи данных. 
 
+[Презентация](https://docs.google.com/presentation/d/1G8DHwZHpTcCdhvrjacdG3FIfxm9SMt6qSFCvWKldfE4/edit?usp=sharing)
 
 ## Сборка
 
@@ -42,3 +43,20 @@
 В директории `frontend/games/wasmDOOM/src` выполнить `make`. Скопировать файлы из `frontend/games/wasmDOOM/public`:
 - `shareware.wad` и `wasm/wasm-doom.wasm` в `frontend/public/doom/`
 - `wasm/wasm-doom.js` в `frontend/src/doom/`
+
+## Развертывание
+
+Хранилище сессий должно быть доступно по префиксу `/api`. Собранный web-клиент должен быть доступен по пути `/`. Пример конфигурации `Caddy`, при том что web-клиент находится в `/var/www/html`:
+```Caddyfile
+instant-pb.ru {
+        handle /api/* {
+                uri strip_prefix api
+                reverse_proxy localhost:3000
+        }
+
+        handle /* {
+                root * /var/www/html
+                file_server
+        }
+}
+```
